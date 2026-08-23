@@ -302,8 +302,8 @@ export default function BottomFolderNav({
 
   return (
     <div className="w-full max-w-[780px] flex flex-col gap-4 bg-zinc-950 rounded-2xl border border-zinc-900 shadow-xl p-4 sm:p-5 select-none">
-      {/* Row 1: Folder Selection Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+      {/* Row 1: Folder Selection Tabs (Wrapped into clean multi-row layout) */}
+      <div className="flex flex-wrap items-center gap-2">
         {rootFolders.map((folder) => {
           const isFolderSelected = selectedFolderId === folder.id;
           const rangeCount = folder.childrenIds?.length || 0;
@@ -326,7 +326,7 @@ export default function BottomFolderNav({
                   ? { borderColor: folder.color, color: '#ffffff' }
                   : undefined
               }
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
                 isFolderSelected
                   ? 'bg-zinc-900 text-white border-emerald-500 shadow-md ring-1 ring-emerald-500/30'
                   : 'bg-zinc-950 hover:bg-zinc-900 text-zinc-400 border-zinc-850 hover:text-zinc-200'
@@ -349,7 +349,7 @@ export default function BottomFolderNav({
         {rootRanges.length > 0 && (
           <button
             onClick={() => setSelectedFolderId('__root__')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
               selectedFolderId === '__root__'
                 ? 'bg-zinc-900 text-white border-emerald-500 shadow-md ring-1 ring-emerald-500/30'
                 : 'bg-zinc-950 hover:bg-zinc-900 text-zinc-400 border-zinc-850 hover:text-zinc-200'
@@ -403,61 +403,63 @@ export default function BottomFolderNav({
         )}
       </div>
 
-      {/* Action Legend & Range Statistics (Especially prominent in View Mode) */}
-      <div className="pt-2 border-t border-zinc-900/80 flex flex-col gap-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-            <PieChart className="h-3.5 w-3.5 text-zinc-400" />
-            <span>Легенда действий и охват</span>
-          </div>
-
-          <div className="text-xs font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-            Всего: {stats.totalCombos} комб ({stats.totalPercent}%)
-          </div>
-        </div>
-
-        {/* Legend Chips with color & percentage */}
-        <div className="flex flex-wrap items-center gap-2">
-          {stats.actionStats.length > 0 ? (
-            stats.actionStats.map((act) => (
-              <div
-                key={act.id}
-                className="flex items-center gap-2 px-2.5 py-1 bg-zinc-900/80 border border-zinc-800 rounded-lg text-xs"
-              >
-                <span
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm"
-                  style={{ backgroundColor: act.color }}
-                />
-                <span className="text-zinc-200 font-medium">{act.name}</span>
-                <span className="text-zinc-400 font-mono text-[11px]">
-                  {act.combos} комб ({act.percent}%)
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="text-xs text-zinc-500 italic">
-              В данном диапазоне пока нет активных действий
+      {/* Action Legend & Range Statistics (Hidden in View Mode as requested) */}
+      {!isViewMode && (
+        <div className="pt-2 border-t border-zinc-900/80 flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+              <PieChart className="h-3.5 w-3.5 text-zinc-400" />
+              <span>Легенда действий и охват</span>
             </div>
-          )}
 
-          {/* Fold info */}
-          <div className="flex items-center gap-2 px-2.5 py-1 bg-zinc-900/40 border border-zinc-900 rounded-lg text-xs text-zinc-500">
-            <span className="w-2.5 h-2.5 rounded-full bg-zinc-800 flex-shrink-0" />
-            <span>Fold</span>
-            <span className="font-mono text-[11px]">
-              {stats.foldCombos} комб ({stats.foldPercent}%)
-            </span>
+            <div className="text-xs font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+              Всего: {stats.totalCombos} комб ({stats.totalPercent}%)
+            </div>
+          </div>
+
+          {/* Legend Chips with color & percentage */}
+          <div className="flex flex-wrap items-center gap-2">
+            {stats.actionStats.length > 0 ? (
+              stats.actionStats.map((act) => (
+                <div
+                  key={act.id}
+                  className="flex items-center gap-2 px-2.5 py-1 bg-zinc-900/80 border border-zinc-800 rounded-lg text-xs"
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm"
+                    style={{ backgroundColor: act.color }}
+                  />
+                  <span className="text-zinc-200 font-medium">{act.name}</span>
+                  <span className="text-zinc-400 font-mono text-[11px]">
+                    {act.combos} комб ({act.percent}%)
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-zinc-500 italic">
+                В данном диапазоне пока нет активных действий
+              </div>
+            )}
+
+            {/* Fold info */}
+            <div className="flex items-center gap-2 px-2.5 py-1 bg-zinc-900/40 border border-zinc-900 rounded-lg text-xs text-zinc-500">
+              <span className="w-2.5 h-2.5 rounded-full bg-zinc-800 flex-shrink-0" />
+              <span>Fold</span>
+              <span className="font-mono text-[11px]">
+                {stats.foldCombos} комб ({stats.foldPercent}%)
+              </span>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Notes if present on the active range */}
-        {activeNode?.notes && (
-          <div className="mt-1 p-2.5 bg-zinc-900/40 border border-zinc-850 rounded-lg text-xs text-zinc-400 leading-relaxed">
-            <span className="text-zinc-300 font-medium block mb-0.5">Заметки к диапазону:</span>
-            {activeNode.notes}
-          </div>
-        )}
-      </div>
+      {/* Notes if present on the active range */}
+      {activeNode?.notes && (
+        <div className="p-2.5 bg-zinc-900/40 border border-zinc-850 rounded-lg text-xs text-zinc-400 leading-relaxed">
+          <span className="text-zinc-300 font-medium block mb-0.5">Заметки к диапазону:</span>
+          {activeNode.notes}
+        </div>
+      )}
 
     </div>
   );
