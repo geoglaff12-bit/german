@@ -1,0 +1,6 @@
+{
+  "name": "Preflop Range Builder & Trainer",
+  "description": "A professional poker preflop range builder, editor, and training quiz simulator identical to FreeBetRange, integrated with an AI Range Generator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
