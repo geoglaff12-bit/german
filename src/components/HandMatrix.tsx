@@ -269,8 +269,8 @@ export default function HandMatrix({
 
       {/* Control / Inspector Toolbar */}
       {isViewMode ? (
-        <div className="w-full max-w-[740px] flex items-center justify-between text-xs px-1">
-          {inspectedCombo ? (
+        inspectedCombo ? (
+          <div className="w-full max-w-[740px] flex items-center justify-between text-xs px-1 mt-1">
             <div className="flex items-center gap-3 bg-zinc-900/90 border border-zinc-800 rounded-xl px-3.5 py-2 w-full justify-between">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-white">{inspectedCombo}</span>
@@ -315,13 +315,8 @@ export default function HandMatrix({
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="text-zinc-500 text-[11px] italic flex items-center justify-between w-full">
-              <span>💡 Нажмите на любую руку в матрице для детального просмотра весов действий</span>
-              <span className="text-zinc-600">Стрелки ← → для переключения чартов</span>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : null
       ) : (
         <div className="w-full max-w-[740px] flex flex-wrap gap-2 justify-between items-center text-xs">
           <div className="flex gap-2">
