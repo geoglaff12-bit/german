@@ -308,29 +308,85 @@ export default function App() {
 
   const handleDuplicateRange = (id: string) => {
     const sourceNode = tree[id];
-    if (!sourceNode || sourceNode.type !== 'range') return;
+    if (!sourceNode) return;
 
-    const newId = 'range-' + Math.random().toString(36).substr(2, 9);
-    const duplicatedNode: TreeNode = {
-      ...sourceNode,
-      id: newId,
-      name: `${sourceNode.name} (Копия)`,
-      // Deep copy grid
-      grid: JSON.parse(JSON.stringify(sourceNode.grid || {})),
-    };
+    if (sourceNode.type === 'range') {
+      const newId = 'range-' + Math.random().toString(36).substr(2, 9);
+      const duplicatedNode: TreeNode = {
+        ...sourceNode,
+        id: newId,
+        name: `${sourceNode.name} (Копия)`,
+        // Deep copy grid
+        grid: JSON.parse(JSON.stringify(sourceNode.grid || {})),
+      };
 
-    setTree((prev) => {
-      const next = { ...prev, [newId]: duplicatedNode };
-      const parentId = sourceNode.parentId;
-      if (parentId && next[parentId]) {
-        next[parentId] = {
-          ...next[parentId],
-          childrenIds: [...(next[parentId].childrenIds || []), newId],
+      setTree((prev) => {
+        const next = { ...prev, [newId]: duplicatedNode };
+        const parentId = sourceNode.parentId;
+        if (parentId && next[parentId]) {
+          next[parentId] = {
+            ...next[parentId],
+            childrenIds: [...(next[parentId].childrenIds || []), newId],
+          };
+        }
+        return next;
+      });
+      setActiveRangeId(newId);
+    } else if (sourceNode.type === 'folder') {
+      // Deep duplicate folder and all children
+      setTree((prev) => {
+        const next = { ...prev };
+        let firstClonedRangeId: string | null = null;
+
+        const cloneSubtree = (currentId: string, newParentId: string | null, isTop: boolean): string => {
+          const nodeToClone = prev[currentId];
+          if (!nodeToClone) return '';
+
+          const generatedId = (nodeToClone.type === 'folder' ? 'folder-' : 'range-') + Math.random().toString(36).substr(2, 9);
+          const clonedChildrenIds: string[] = [];
+
+          if (nodeToClone.type === 'range' && !firstClonedRangeId) {
+            firstClonedRangeId = generatedId;
+          }
+
+          if (nodeToClone.childrenIds && nodeToClone.childrenIds.length > 0) {
+            nodeToClone.childrenIds.forEach((childId) => {
+              const newChildId = cloneSubtree(childId, generatedId, false);
+              if (newChildId) {
+                clonedChildrenIds.push(newChildId);
+              }
+            });
+          }
+
+          const clonedNode: TreeNode = {
+            ...nodeToClone,
+            id: generatedId,
+            parentId: newParentId,
+            name: isTop ? `${nodeToClone.name} (Копия)` : nodeToClone.name,
+            childrenIds: nodeToClone.type === 'folder' ? clonedChildrenIds : undefined,
+            grid: nodeToClone.grid ? JSON.parse(JSON.stringify(nodeToClone.grid)) : undefined,
+          };
+
+          next[generatedId] = clonedNode;
+          return generatedId;
         };
-      }
-      return next;
-    });
-    setActiveRangeId(newId);
+
+        const newFolderId = cloneSubtree(id, sourceNode.parentId, true);
+
+        if (sourceNode.parentId && next[sourceNode.parentId]) {
+          next[sourceNode.parentId] = {
+            ...next[sourceNode.parentId],
+            childrenIds: [...(next[sourceNode.parentId].childrenIds || []), newFolderId],
+          };
+        }
+
+        if (firstClonedRangeId) {
+          setActiveRangeId(firstClonedRangeId);
+        }
+
+        return next;
+      });
+    }
   };
 
   const handleToggleFolderOpen = (id: string) => {
@@ -925,6 +981,12 @@ export default function App() {
                   isViewMode={isViewMode}
                   onSelectRange={handleSelectRange}
                   onToggleViewMode={() => setIsViewMode(!isViewMode)}
+                  onAddFolder={handleAddFolder}
+                  onAddRange={handleAddRange}
+                  onDeleteNode={handleDeleteNode}
+                  onRenameNode={handleRenameNode}
+                  onDuplicateNode={handleDuplicateRange}
+                  onUpdateNodeColor={handleUpdateNodeColor}
                 />
               )}
 

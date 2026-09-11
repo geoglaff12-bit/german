@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Folder, 
   FolderOpen, 
@@ -10,7 +10,15 @@ import {
   Eye, 
   Edit3,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  Plus,
+  FolderPlus,
+  FilePlus,
+  Palette,
+  Copy,
+  Trash,
+  Check,
+  X
 } from 'lucide-react';
 import { RangeTree as TreeType, RangeAction, RangeGrid, TreeNode } from '../types';
 
@@ -22,7 +30,31 @@ interface BottomFolderNavProps {
   isViewMode: boolean;
   onSelectRange: (id: string) => void;
   onToggleViewMode?: () => void;
+  onAddFolder?: (parentId: string | null) => void;
+  onAddRange?: (parentId: string | null) => void;
+  onDeleteNode?: (id: string) => void;
+  onRenameNode?: (id: string, newName: string) => void;
+  onDuplicateNode?: (id: string) => void;
+  onUpdateNodeColor?: (id: string, color: string) => void;
 }
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  nodeId: string;
+}
+
+const colorsList = [
+  { hex: '', label: 'Стандартный' },
+  { hex: '#ef4444', label: 'Красный' },
+  { hex: '#f97316', label: 'Оранжевый' },
+  { hex: '#eab308', label: 'Желтый' },
+  { hex: '#22c55e', label: 'Зеленый' },
+  { hex: '#06b6d4', label: 'Бирюзовый' },
+  { hex: '#3b82f6', label: 'Синий' },
+  { hex: '#a855f7', label: 'Фиолетовый' },
+  { hex: '#ec4899', label: 'Розовый' }
+];
 
 export default function BottomFolderNav({
   tree,
@@ -32,7 +64,39 @@ export default function BottomFolderNav({
   isViewMode,
   onSelectRange,
   onToggleViewMode,
+  onAddFolder,
+  onAddRange,
+  onDeleteNode,
+  onRenameNode,
+  onDuplicateNode,
+  onUpdateNodeColor,
 }: BottomFolderNavProps) {
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close context menu on outside click or Escape
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setContextMenu(null);
+        setEditingId(null);
+      }
+    };
+    window.addEventListener('click', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   // Find which folder the current activeId belongs to
   const activeNode = activeId ? tree[activeId] : null;
 
@@ -100,18 +164,6 @@ export default function BottomFolderNav({
     currentFolder.childrenIds.forEach(collectRanges);
     return ranges;
   }, [currentFolder, tree]);
-
-  // Flattened list of ALL ranges in entire tree
-  const allTreeRanges = useMemo(() => {
-    const ranges: TreeNode[] = [];
-    const collect = (node: TreeNode) => {
-      if (node.type === 'range') {
-        ranges.push(node);
-      }
-    };
-    Object.values(tree).forEach(collect);
-    return ranges;
-  }, [tree]);
 
   // Prev / Next range handlers
   const currentRangeIndex = folderRanges.findIndex((r) => r.id === activeId);
@@ -202,13 +254,37 @@ export default function BottomFolderNav({
     };
   }, [grid, actions]);
 
+  const handleOpenContextMenu = (e: React.MouseEvent, nodeId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const x = Math.min(e.clientX, window.innerWidth - 230);
+    const y = Math.min(e.clientY, window.innerHeight - 340);
+    setContextMenu({ x, y, nodeId });
+  };
+
+  const handleSaveRename = (id: string) => {
+    if (editName.trim() && onRenameNode) {
+      onRenameNode(id, editName.trim());
+    }
+    setEditingId(null);
+  };
+
   // Helper to render folder ranges & subfolders
   const renderFolderItems = (folderId: string) => {
     const node = tree[folderId];
     if (!node || !node.childrenIds || node.childrenIds.length === 0) {
       return (
-        <div className="text-xs text-zinc-500 italic py-3 text-center w-full">
-          В этой папке пока нет чартов
+        <div className="flex items-center justify-between py-2 px-3 w-full text-xs text-zinc-500 italic">
+          <span>В этой папке пока нет чартов</span>
+          {onAddRange && (
+            <button
+              onClick={() => onAddRange(folderId)}
+              className="not-italic flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium cursor-pointer"
+            >
+              <Plus className="h-3 w-3" />
+              <span>Добавить чарт</span>
+            </button>
+          )}
         </div>
       );
     }
@@ -226,13 +302,69 @@ export default function BottomFolderNav({
                 key={child.id} 
                 className="w-full bg-zinc-900/40 rounded-xl p-2.5 my-1 border border-zinc-850/60"
               >
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300 mb-2 px-1">
-                  <Folder className="h-3.5 w-3.5" style={{ color: child.color || '#10b981' }} />
-                  <span>{child.name}</span>
-                  <span className="text-[10px] text-zinc-500 font-normal">
-                    ({child.childrenIds?.length || 0})
-                  </span>
+                <div 
+                  className="flex items-center justify-between text-xs font-semibold text-zinc-300 mb-2 px-1 cursor-pointer"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setEditingId(child.id);
+                    setEditName(child.name);
+                  }}
+                  onContextMenu={(e) => handleOpenContextMenu(e, child.id)}
+                  title="ПКМ: меню папки | Двойной клик: переименовать"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Folder className="h-3.5 w-3.5" style={{ color: child.color || '#10b981' }} />
+                    {editingId === child.id ? (
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveRename(child.id);
+                            if (e.key === 'Escape') setEditingId(null);
+                          }}
+                          autoFocus
+                          className="bg-zinc-950 text-white text-xs px-1.5 py-0.5 rounded border border-emerald-500 outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveRename(child.id)}
+                          className="text-emerald-400 hover:text-emerald-300"
+                        >
+                          <Check className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(null)}
+                          className="text-zinc-400 hover:text-zinc-200"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span>{child.name}</span>
+                    )}
+                    <span className="text-[10px] text-zinc-500 font-normal">
+                      ({child.childrenIds?.length || 0})
+                    </span>
+                  </div>
+
+                  {onAddRange && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddRange(child.id);
+                      }}
+                      className="text-[11px] text-zinc-400 hover:text-emerald-400 flex items-center gap-0.5 cursor-pointer"
+                      title="Добавить чарт в подпапку"
+                    >
+                      <Plus className="h-3 w-3" />
+                      <span>+Чарт</span>
+                    </button>
+                  )}
                 </div>
+
                 <div className="flex flex-wrap items-center gap-1.5">
                   {child.childrenIds && child.childrenIds.length > 0 ? (
                     child.childrenIds.map((subChildId) => {
@@ -240,10 +372,48 @@ export default function BottomFolderNav({
                       if (!subChild || subChild.type !== 'range') return null;
                       const isSelected = activeId === subChild.id;
 
+                      if (editingId === subChild.id) {
+                        return (
+                          <div key={subChild.id} className="flex items-center gap-1 bg-zinc-900 border border-emerald-500 rounded-lg px-2 py-1">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveRename(subChild.id);
+                                if (e.key === 'Escape') setEditingId(null);
+                              }}
+                              autoFocus
+                              className="bg-transparent text-xs text-white outline-none w-24"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveRename(subChild.id)}
+                              className="text-emerald-400 hover:text-emerald-300"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingId(null)}
+                              className="text-zinc-400 hover:text-zinc-200"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        );
+                      }
+
                       return (
                         <button
                           key={subChild.id}
                           onClick={() => onSelectRange(subChild.id)}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingId(subChild.id);
+                            setEditName(subChild.name);
+                          }}
+                          onContextMenu={(e) => handleOpenContextMenu(e, subChild.id)}
                           style={
                             isSelected && subChild.color
                               ? { borderColor: subChild.color, backgroundColor: `${subChild.color}20` }
@@ -254,6 +424,7 @@ export default function BottomFolderNav({
                               ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500 shadow-sm font-semibold scale-[1.02]'
                               : 'bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 border-zinc-800 hover:text-white'
                           }`}
+                          title="Клик: выбрать | ПКМ: меню | Двойной клик: переименовать"
                         >
                           <span
                             className="w-2 h-2 rounded-full flex-shrink-0"
@@ -273,10 +444,49 @@ export default function BottomFolderNav({
 
           // Direct range child
           const isSelected = activeId === child.id;
+
+          if (editingId === child.id) {
+            return (
+              <div key={child.id} className="flex items-center gap-1 bg-zinc-900 border border-emerald-500 rounded-lg px-2 py-1">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveRename(child.id);
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                  autoFocus
+                  className="bg-transparent text-xs text-white outline-none w-24"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSaveRename(child.id)}
+                  className="text-emerald-400 hover:text-emerald-300"
+                >
+                  <Check className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingId(null)}
+                  className="text-zinc-400 hover:text-zinc-200"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          }
+
           return (
             <button
               key={child.id}
               onClick={() => onSelectRange(child.id)}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setEditingId(child.id);
+                setEditName(child.name);
+              }}
+              onContextMenu={(e) => handleOpenContextMenu(e, child.id)}
               style={
                 isSelected && child.color
                   ? { borderColor: child.color, backgroundColor: `${child.color}20` }
@@ -287,6 +497,7 @@ export default function BottomFolderNav({
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500 shadow-sm font-semibold scale-[1.02]'
                   : 'bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 border-zinc-800 hover:text-white'
               }`}
+              title="Клик: выбрать | ПКМ: меню | Двойной клик: переименовать"
             >
               <span
                 className="w-2 h-2 rounded-full flex-shrink-0"
@@ -296,9 +507,23 @@ export default function BottomFolderNav({
             </button>
           );
         })}
+
+        {/* Quick add chart button inside folder */}
+        {onAddRange && (
+          <button
+            onClick={() => onAddRange(folderId)}
+            title="Добавить чарт в эту папку"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-zinc-400 hover:text-emerald-400 hover:bg-zinc-900 border border-dashed border-zinc-800 hover:border-emerald-500/50 transition-all cursor-pointer"
+          >
+            <Plus className="h-3 w-3" />
+            <span>+Чарт</span>
+          </button>
+        )}
       </div>
     );
   };
+
+  const contextNode = contextMenu ? tree[contextMenu.nodeId] : null;
 
   return (
     <div className="w-full max-w-[780px] flex flex-col gap-4 bg-zinc-950 rounded-2xl border border-zinc-900 shadow-xl p-4 sm:p-5 select-none">
@@ -307,6 +532,38 @@ export default function BottomFolderNav({
         {rootFolders.map((folder) => {
           const isFolderSelected = selectedFolderId === folder.id;
           const rangeCount = folder.childrenIds?.length || 0;
+
+          if (editingId === folder.id) {
+            return (
+              <div key={folder.id} className="flex items-center gap-1 bg-zinc-900 border border-emerald-500 rounded-xl px-2 py-1">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveRename(folder.id);
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                  autoFocus
+                  className="bg-transparent text-xs text-white outline-none w-28"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSaveRename(folder.id)}
+                  className="text-emerald-400 hover:text-emerald-300 p-0.5 cursor-pointer"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingId(null)}
+                  className="text-zinc-400 hover:text-zinc-200 p-0.5 cursor-pointer"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          }
 
           return (
             <button
@@ -321,6 +578,12 @@ export default function BottomFolderNav({
                   }
                 }
               }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setEditingId(folder.id);
+                setEditName(folder.name);
+              }}
+              onContextMenu={(e) => handleOpenContextMenu(e, folder.id)}
               style={
                 isFolderSelected && folder.color
                   ? { borderColor: folder.color, color: '#ffffff' }
@@ -331,6 +594,7 @@ export default function BottomFolderNav({
                   ? 'bg-zinc-900 text-white border-emerald-500 shadow-md ring-1 ring-emerald-500/30'
                   : 'bg-zinc-950 hover:bg-zinc-900 text-zinc-400 border-zinc-850 hover:text-zinc-200'
               }`}
+              title="Клик: открыть | ПКМ: меню папки | Двойной клик: переименовать"
             >
               {isFolderSelected ? (
                 <FolderOpen className="h-4 w-4" style={{ color: folder.color || '#10b981' }} />
@@ -344,6 +608,18 @@ export default function BottomFolderNav({
             </button>
           );
         })}
+
+        {/* Add Folder button */}
+        {onAddFolder && (
+          <button
+            onClick={() => onAddFolder(null)}
+            title="Создать новую папку"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-emerald-300 bg-zinc-950 hover:bg-zinc-900 border border-dashed border-zinc-800 hover:border-emerald-500/50 transition-all cursor-pointer"
+          >
+            <FolderPlus className="h-3.5 w-3.5 text-emerald-400" />
+            <span>+Папка</span>
+          </button>
+        )}
 
         {/* Root level ranges if any exist */}
         {rootRanges.length > 0 && (
@@ -370,10 +646,49 @@ export default function BottomFolderNav({
           <div className="flex flex-wrap items-center gap-1.5">
             {rootRanges.map((r) => {
               const isSelected = activeId === r.id;
+
+              if (editingId === r.id) {
+                return (
+                  <div key={r.id} className="flex items-center gap-1 bg-zinc-900 border border-emerald-500 rounded-lg px-2 py-1">
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveRename(r.id);
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                      autoFocus
+                      className="bg-transparent text-xs text-white outline-none w-24"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveRename(r.id)}
+                      className="text-emerald-400 hover:text-emerald-300"
+                    >
+                      <Check className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                      className="text-zinc-400 hover:text-zinc-200"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              }
+
               return (
                 <button
                   key={r.id}
                   onClick={() => onSelectRange(r.id)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setEditingId(r.id);
+                    setEditName(r.name);
+                  }}
+                  onContextMenu={(e) => handleOpenContextMenu(e, r.id)}
                   style={
                     isSelected && r.color
                       ? { borderColor: r.color, backgroundColor: `${r.color}20` }
@@ -384,6 +699,7 @@ export default function BottomFolderNav({
                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500 shadow-sm font-semibold'
                       : 'bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 border-zinc-800 hover:text-white'
                   }`}
+                  title="Клик: выбрать | ПКМ: меню | Двойной клик: переименовать"
                 >
                   <span
                     className="w-2 h-2 rounded-full flex-shrink-0"
@@ -393,6 +709,17 @@ export default function BottomFolderNav({
                 </button>
               );
             })}
+
+            {onAddRange && (
+              <button
+                onClick={() => onAddRange(null)}
+                title="Добавить новый чарт в корень"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-zinc-400 hover:text-emerald-400 hover:bg-zinc-900 border border-dashed border-zinc-800 hover:border-emerald-500/50 transition-all cursor-pointer"
+              >
+                <FilePlus className="h-3 w-3" />
+                <span>+Чарт</span>
+              </button>
+            )}
           </div>
         ) : selectedFolderId ? (
           renderFolderItems(selectedFolderId)
@@ -461,6 +788,122 @@ export default function BottomFolderNav({
         </div>
       )}
 
+      {/* Context Menu (ПКМ) for Folders and Charts */}
+      {contextMenu && contextNode && (
+        <div
+          ref={contextMenuRef}
+          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+          className="fixed z-50 w-52 bg-zinc-900/95 backdrop-blur-md border border-zinc-750 rounded-xl shadow-2xl p-1.5 flex flex-col text-xs text-zinc-200 animate-in fade-in zoom-in-95 duration-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header of Context Menu */}
+          <div className="px-2.5 py-1.5 border-b border-zinc-800 flex items-center gap-2 mb-1">
+            {contextNode.type === 'folder' ? (
+              <Folder className="h-3.5 w-3.5" style={{ color: contextNode.color || '#10b981' }} />
+            ) : (
+              <FileText className="h-3.5 w-3.5" style={{ color: contextNode.color || '#34d399' }} />
+            )}
+            <span className="font-bold truncate text-white">{contextNode.name}</span>
+          </div>
+
+          {/* Action: Rename */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setContextMenu(null);
+              setEditingId(contextNode.id);
+              setEditName(contextNode.name);
+            }}
+            className="flex items-center gap-2.5 px-2.5 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-left cursor-pointer"
+          >
+            <Edit3 className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Переименовать</span>
+          </button>
+
+          {/* Action: Color Palette Swatches */}
+          <div className="px-2.5 py-1.5 flex flex-col gap-1 border-t border-zinc-800/60 my-0.5">
+            <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+              <Palette className="h-3 w-3 text-amber-400" />
+              <span>Выбрать цвет</span>
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              {colorsList.map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  onClick={() => {
+                    onUpdateNodeColor?.(contextNode.id, c.hex);
+                    setContextMenu(null);
+                  }}
+                  className={`w-4 h-4 rounded-full border transition-all cursor-pointer ${
+                    contextNode.color === c.hex || (!contextNode.color && c.hex === '')
+                      ? 'border-white scale-125 ring-2 ring-emerald-500 shadow-md'
+                      : 'border-zinc-700 hover:scale-115'
+                  }`}
+                  style={{ backgroundColor: c.hex || '#71717a' }}
+                  title={c.label}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Action: Add Chart inside folder */}
+          {contextNode.type === 'folder' && onAddRange && (
+            <button
+              onClick={() => {
+                setContextMenu(null);
+                onAddRange(contextNode.id);
+              }}
+              className="flex items-center gap-2.5 px-2.5 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-left cursor-pointer border-t border-zinc-800/60 mt-0.5"
+            >
+              <Plus className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Добавить чарт в папку</span>
+            </button>
+          )}
+
+          {/* Action: Add Subfolder */}
+          {contextNode.type === 'folder' && onAddFolder && (
+            <button
+              onClick={() => {
+                setContextMenu(null);
+                onAddFolder(contextNode.id);
+              }}
+              className="flex items-center gap-2.5 px-2.5 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-left cursor-pointer"
+            >
+              <FolderPlus className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Добавить подпапку</span>
+            </button>
+          )}
+
+          {/* Action: Duplicate (Folder with all charts or Single Range) */}
+          {onDuplicateNode && (
+            <button
+              onClick={() => {
+                setContextMenu(null);
+                onDuplicateNode(contextNode.id);
+              }}
+              className="flex items-center gap-2.5 px-2.5 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-left cursor-pointer border-t border-zinc-800/60 mt-0.5"
+            >
+              <Copy className="h-3.5 w-3.5 text-sky-400" />
+              <span>{contextNode.type === 'folder' ? 'Дублировать папку (со всеми чартами)' : 'Создать копию чарта'}</span>
+            </button>
+          )}
+
+          {/* Action: Delete */}
+          {onDeleteNode && (
+            <button
+              onClick={() => {
+                setContextMenu(null);
+                onDeleteNode(contextNode.id);
+              }}
+              className="flex items-center gap-2.5 px-2.5 py-1.5 hover:bg-red-950/40 text-red-400 hover:text-red-300 rounded-lg transition-colors text-left cursor-pointer border-t border-zinc-800/60 mt-0.5"
+            >
+              <Trash className="h-3.5 w-3.5" />
+              <span>Удалить {contextNode.type === 'folder' ? 'папку' : 'чарт'}</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

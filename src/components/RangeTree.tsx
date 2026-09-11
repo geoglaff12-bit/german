@@ -325,6 +325,18 @@ export default function RangeTree({
                   <Palette className="h-3.5 w-3.5" />
                 </button>
 
+                {/* Duplicate Folder */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDuplicateRange(node.id);
+                  }}
+                  title="Дублировать папку (со всеми чартами)"
+                  className="p-1 text-zinc-400 hover:text-sky-400 rounded hover:bg-zinc-800 transition-colors"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+
                 {/* Rename */}
                 <button
                   onClick={(e) => handleStartRename(node, e)}
@@ -706,19 +718,17 @@ export default function RangeTree({
             <span>{contextNode.type === 'folder' ? 'Добавить подпапку' : 'Создать папку рядом'}</span>
           </button>
 
-          {/* Action: Duplicate (if range) */}
-          {contextNode.type === 'range' && (
-            <button
-              onClick={() => {
-                setContextMenu(null);
-                onDuplicateRange(contextNode.id);
-              }}
-              className="flex items-center gap-2.5 px-2.5 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-left cursor-pointer"
-            >
-              <Copy className="h-3.5 w-3.5 text-sky-400" />
-              <span>Создать копию</span>
-            </button>
-          )}
+          {/* Action: Duplicate */}
+          <button
+            onClick={() => {
+              setContextMenu(null);
+              onDuplicateRange(contextNode.id);
+            }}
+            className="flex items-center gap-2.5 px-2.5 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-left cursor-pointer"
+          >
+            <Copy className="h-3.5 w-3.5 text-sky-400" />
+            <span>{contextNode.type === 'folder' ? 'Дублировать папку (со всеми чартами)' : 'Создать копию чарта'}</span>
+          </button>
 
           {/* Move Up / Move Down */}
           {onMoveNode && (
