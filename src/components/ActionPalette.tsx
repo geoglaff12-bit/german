@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Eraser, Check, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Check, Sparkles } from 'lucide-react';
 import { RangeAction } from '../types';
 
 interface ActionPaletteProps {
@@ -59,32 +59,11 @@ export default function ActionPalette({
         </div>
       </div>
 
-      {/* Grid of Brushes (including Eraser) */}
+      {/* Grid of Brushes */}
       <div className="space-y-3">
         <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Инструменты рисования</div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-          {/* Eraser Tool */}
-          <button
-            onClick={() => {
-              onSelectAction(null);
-              setColorPickerActionId(null);
-            }}
-            className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer ${
-              activeActionId === null
-                ? 'bg-zinc-900/90 border-amber-500/50 text-white shadow-lg shadow-amber-950/10'
-                : 'bg-zinc-900/30 border-zinc-900 hover:border-zinc-800 text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <div className="h-6 w-6 rounded-full bg-zinc-800/80 flex items-center justify-center shrink-0 border border-zinc-700/50 text-amber-500">
-              <Eraser className="h-3.5 w-3.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-bold">Ластик</div>
-              <p className="text-[10px] text-zinc-500 truncate">Очистка ячеек диапазона</p>
-            </div>
-          </button>
-
           {/* User actions */}
           {actions.map((act) => {
             const isActive = activeActionId === act.id;
@@ -212,7 +191,7 @@ export default function ActionPalette({
             </div>
           </div>
         ) : (
-          <p className="text-[11px] text-zinc-500 italic">Ластик полностью очищает все действия с ячеек.</p>
+          <p className="text-[11px] text-zinc-500 italic">Выберите действие из списка выше для настройки веса.</p>
         )}
       </div>
 
